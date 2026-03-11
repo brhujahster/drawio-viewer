@@ -55,7 +55,8 @@
   }
   func (a *App) registerTempFile(path string) { ... }
 
-  Fase 3: Frontend (UI & Render)
+
+ # Fase 3: Frontend (UI & Render)
  Task 3.1: Incluir viewer.min.js no frontend/index.html via tag <script>.
 
 Done quando: o objeto GraphViewer está disponível no console do wails dev.
@@ -83,7 +84,7 @@ Renderiza usando a API do viewer
 Done quando: um arquivo .drawio de teste é renderizado corretamente no canvas.
  Task 3.6: Implementar controles de Zoom (botões + e -) e seletor de páginas integrados à API do viewer.min.js.
 
-Fase 4: Integração e Refinamento
+# Fase 4: Integração e Refinamento
  Task 4.1: Implementar binding auxiliar ReadFile(path string) (string, error) em Go para que o frontend possa ler o XML do disco.
 
  Task 4.2: Adicionar tratamento de erros no frontend:

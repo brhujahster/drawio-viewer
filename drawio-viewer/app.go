@@ -1,27 +1,54 @@
 package main
 
 import (
-	"context"
-	"fmt"
+    "context"
+    "fmt"
+    "sync"
+
+    "drawio-viewer/internal/models"
+    "drawio-viewer/internal/services"
 )
 
-// App struct
 type App struct {
-	ctx context.Context
+    ctx             context.Context
+    tempFiles       []string
+    mu              sync.Mutex
+    fileService     *services.FileService
+    downloadService *services.DownloadService
 }
 
-// NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+    return &App{
+        downloadService: services.NewDownloadService(),
+    }
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
+    a.ctx = ctx
+    a.fileService = services.NewFileService(ctx)
 }
 
-// Greet returns a greeting for the given name
+func (a *App) registerTempFile(path string) {
+    a.mu.Lock()
+    defer a.mu.Unlock()
+    a.tempFiles = append(a.tempFiles, path)
+}
+
+func (a *App) OpenLocalFile() (models.Diagram, error) {
+    return a.fileService.OpenLocalFile()
+}
+
+func (a *App) DownloadFromURL(url string) (models.Diagram, error) {
+    diagram, err := a.downloadService.DownloadFromURL(url)
+    if err != nil {
+        return models.Diagram{}, err
+    }
+    if diagram.IsTemp {
+        a.registerTempFile(diagram.XMLPath)
+    }
+    return diagram, nil
+}
+
 func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
+    return fmt.Sprintf("Hello %s, It's show time!", name)
 }
