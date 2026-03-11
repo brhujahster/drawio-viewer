@@ -1,24 +1,39 @@
 <script>
+  import { onMount, onDestroy } from 'svelte';
   import { diagrams, activeTabId } from '../stores/diagrams.js';
   import { showToast } from '../stores/toast.js';
+  import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime.js';
 
   let showUrlInput = false;
   let urlValue = '';
   let loadingLocal = false;
   let loadingUrl = false;
 
-  async function openLocal() {
-    loadingLocal = true;
-    try {
-      const diagram = await window['go']['main']['App']['OpenLocalFile']();
+  onMount(() => {
+    EventsOn('localfile:opened', (diagram) => {
+      loadingLocal = false;
       if (!diagram || !diagram.xmlPath) return;
       diagrams.update(d => [...d, diagram]);
       activeTabId.set(diagram.id);
-    } catch (e) {
-      showToast('Erro ao abrir arquivo: ' + e, 'error');
-    } finally {
+    });
+
+    EventsOn('localfile:error', (msg) => {
       loadingLocal = false;
-    }
+      showToast('Erro ao abrir arquivo: ' + msg, 'error');
+    });
+
+    EventsOn('localfile:cancelled', () => {
+      loadingLocal = false;
+    });
+  });
+
+  onDestroy(() => {
+    EventsOff('localfile:opened', 'localfile:error', 'localfile:cancelled');
+  });
+
+  function openLocal() {
+    loadingLocal = true;
+    window['go']['main']['App']['OpenLocalFile']();
   }
 
   async function openUrl() {
