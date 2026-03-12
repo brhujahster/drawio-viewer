@@ -14,7 +14,10 @@
 
   <main class="flex-1 overflow-hidden">
     {#if activeDiagram}
-      <DiagramCanvas xmlPath={activeDiagram.xmlPath} />
+      <DiagramCanvas
+        xmlPath={activeDiagram.xmlPath ?? ''}
+        xmlContent={activeDiagram.xmlContent ?? ''}
+      />
     {:else}
       <div class="h-full flex flex-col items-center justify-center gap-4 text-gray-600 select-none">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">

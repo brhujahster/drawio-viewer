@@ -3,21 +3,24 @@
   import { showToast } from '../stores/toast.js';
 
   export let xmlPath = '';
+  export let xmlContent = '';
 
   let container;
   let viewer = null;
   let pages = [];
   let currentPage = 0;
   let error = null;
-  let loadedPath = '';
+  let loadedKey = '';
   let loading = false;
 
-  $: if (container && xmlPath && xmlPath !== loadedPath) {
-    loadDiagram(xmlPath);
+  $: diagramKey = xmlContent ? `content:${xmlContent.length}:${xmlContent.slice(0, 40)}` : `path:${xmlPath}`;
+
+  $: if (container && diagramKey && diagramKey !== loadedKey) {
+    loadDiagram();
   }
 
-  async function loadDiagram(path) {
-    loadedPath = path;
+  async function loadDiagram() {
+    loadedKey = diagramKey;
     error = null;
     viewer = null;
     currentPage = 0;
@@ -25,16 +28,20 @@
     loading = true;
 
     try {
-      const xml = await window['go']['main']['App']['ReadFile'](path);
+      let xml;
 
-      if (!xml || xml.trim() === '') {
-        throw new Error('O arquivo está vazio.');
+      if (xmlContent) {
+        xml = xmlContent;
+      } else if (xmlPath) {
+        xml = await window['go']['main']['App']['ReadFile'](xmlPath);
+      } else {
+        return;
       }
+
+      if (!xml || xml.trim() === '') throw new Error('Arquivo vazio.');
 
       const parseError = getXmlParseError(xml);
-      if (parseError) {
-        throw new Error('XML malformado: ' + parseError);
-      }
+      if (parseError) throw new Error('XML malformado: ' + parseError);
 
       await tick();
       renderDiagram(xml);
@@ -51,11 +58,7 @@
     const parser = new DOMParser();
     const doc = parser.parseFromString(xml, 'text/xml');
     const errNode = doc.querySelector('parsererror');
-    if (errNode) {
-      const text = errNode.textContent?.split('\n')[0] ?? 'erro desconhecido';
-      return text;
-    }
-    return null;
+    return errNode ? (errNode.textContent?.split('\n')[0] ?? 'erro desconhecido') : null;
   }
 
   function renderDiagram(xml) {
@@ -86,61 +89,43 @@
     container.appendChild(div);
 
     if (window.GraphViewer) {
-      viewer = window.GraphViewer.processElement(div);
+      // API correta: processElements() processa todos os .mxgraph não renderizados
+      GraphViewer.processElements();
+      // Captura a instância criada no div para controle de zoom/página
+      viewer = div['GraphViewer'] ?? null;
     } else {
       showToast('GraphViewer não disponível. Verifique se viewer.min.js foi carregado.', 'error');
     }
   }
 
-  function zoomIn() {
-    viewer?.graph?.zoomIn();
-  }
-
-  function zoomOut() {
-    viewer?.graph?.zoomOut();
-  }
-
-  function zoomReset() {
-    viewer?.graph?.fit();
-  }
+  function zoomIn()    { viewer?.graph?.zoomIn(); }
+  function zoomOut()   { viewer?.graph?.zoomOut(); }
+  function zoomReset() { viewer?.graph?.fit(); }
 
   function changePage(idx) {
     currentPage = idx;
-    loadedPath = '';
-    loadDiagram(xmlPath);
+    loadedKey = '';
+    loadDiagram();
   }
 </script>
 
 <div class="flex flex-col h-full">
   <div class="flex items-center gap-1 bg-gray-800 px-3 py-1 border-b border-gray-700 flex-shrink-0 h-9">
-    <button
-      on:click={zoomOut}
-      class="bg-gray-700 hover:bg-gray-600 text-white w-7 h-6 rounded font-bold text-base
-             flex items-center justify-center transition-colors"
-      title="Diminuir zoom"
-    >−</button>
-
-    <button
-      on:click={zoomReset}
+    <button on:click={zoomOut}
+      class="bg-gray-700 hover:bg-gray-600 text-white w-7 h-6 rounded font-bold text-base flex items-center justify-center transition-colors"
+      title="Diminuir zoom">−</button>
+    <button on:click={zoomReset}
       class="bg-gray-700 hover:bg-gray-600 text-white px-2 h-6 rounded text-xs transition-colors"
-      title="Ajustar à tela"
-    >Fit</button>
-
-    <button
-      on:click={zoomIn}
-      class="bg-gray-700 hover:bg-gray-600 text-white w-7 h-6 rounded font-bold text-base
-             flex items-center justify-center transition-colors"
-      title="Aumentar zoom"
-    >+</button>
+      title="Ajustar à tela">Fit</button>
+    <button on:click={zoomIn}
+      class="bg-gray-700 hover:bg-gray-600 text-white w-7 h-6 rounded font-bold text-base flex items-center justify-center transition-colors"
+      title="Aumentar zoom">+</button>
 
     {#if pages.length > 1}
       <div class="w-px h-5 bg-gray-600 mx-2"></div>
       <span class="text-gray-400 text-xs">Página:</span>
-      <select
-        value={currentPage}
-        on:change={(e) => changePage(+e.target.value)}
-        class="bg-gray-700 text-white text-xs rounded px-2 h-6 border border-gray-600 outline-none cursor-pointer"
-      >
+      <select value={currentPage} on:change={(e) => changePage(+e.target.value)}
+        class="bg-gray-700 text-white text-xs rounded px-2 h-6 border border-gray-600 outline-none cursor-pointer">
         {#each pages as page, i}
           <option value={i}>{page}</option>
         {/each}
