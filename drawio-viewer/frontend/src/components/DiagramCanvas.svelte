@@ -6,12 +6,12 @@
   export let xmlContent = '';
 
   let container;
-  let viewer = null;
   let pages = [];
   let currentPage = 0;
   let error = null;
   let loadedKey = '';
   let loading = false;
+  let zoomLevel = 1;
 
   $: diagramKey = xmlContent ? `content:${xmlContent.length}:${xmlContent.slice(0, 40)}` : `path:${xmlPath}`;
 
@@ -22,10 +22,10 @@
   async function loadDiagram() {
     loadedKey = diagramKey;
     error = null;
-    viewer = null;
     currentPage = 0;
     pages = [];
     loading = true;
+    zoomLevel = 1;
 
     try {
       let xml;
@@ -74,6 +74,11 @@
         ? Array.from(diagramEls).map((d, i) => d.getAttribute('name') || `Página ${i + 1}`)
         : ['Página 1'];
 
+    if (!window.GraphViewer) {
+      showToast('GraphViewer não disponível. Verifique se viewer.min.js foi carregado.', 'error');
+      return;
+    }
+
     const config = JSON.stringify({
       highlight: '#0000ff',
       nav: true,
@@ -82,25 +87,48 @@
       xml,
     });
 
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'width:100%;height:100%;transform-origin:top left;';
+
     const div = document.createElement('div');
     div.className = 'mxgraph';
     div.style.cssText = 'width:100%;height:100%;';
     div.setAttribute('data-mxgraph', config);
-    container.appendChild(div);
 
-    if (window.GraphViewer) {
-      // API correta: processElements() processa todos os .mxgraph não renderizados
-      GraphViewer.processElements();
-      // Captura a instância criada no div para controle de zoom/página
-      viewer = div['GraphViewer'] ?? null;
+    wrapper.appendChild(div);
+    container.appendChild(wrapper);
+
+    if (typeof GraphViewer.createViewerForElement === 'function') {
+      GraphViewer.createViewerForElement(div);
     } else {
-      showToast('GraphViewer não disponível. Verifique se viewer.min.js foi carregado.', 'error');
+      GraphViewer.processElements();
     }
   }
 
-  function zoomIn()    { viewer?.graph?.zoomIn(); }
-  function zoomOut()   { viewer?.graph?.zoomOut(); }
-  function zoomReset() { viewer?.graph?.fit(); }
+  function getZoomWrapper() {
+    return container?.firstElementChild ?? null;
+  }
+
+  function applyZoom() {
+    const el = getZoomWrapper();
+    if (!el) return;
+    el.style.transform = `scale(${zoomLevel})`;
+  }
+
+  function zoomIn() {
+    zoomLevel = Math.min(+(zoomLevel + 0.2).toFixed(2), 5);
+    applyZoom();
+  }
+
+  function zoomOut() {
+    zoomLevel = Math.max(+(zoomLevel - 0.2).toFixed(2), 0.2);
+    applyZoom();
+  }
+
+  function zoomReset() {
+    zoomLevel = 1;
+    applyZoom();
+  }
 
   function changePage(idx) {
     currentPage = idx;
