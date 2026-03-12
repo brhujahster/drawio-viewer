@@ -6,6 +6,4 @@ export function DeleteTempFile(arg1:string):Promise<void>;
 
 export function DownloadFromURL(arg1:string):Promise<models.Diagram>;
 
-export function OpenLocalFile():Promise<void>;
-
 export function ReadFile(arg1:string):Promise<string>;

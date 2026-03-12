@@ -10,10 +10,6 @@ export function DownloadFromURL(arg1) {
   return window['go']['main']['App']['DownloadFromURL'](arg1);
 }
 
-export function OpenLocalFile() {
-  return window['go']['main']['App']['OpenLocalFile']();
-}
-
 export function ReadFile(arg1) {
   return window['go']['main']['App']['ReadFile'](arg1);
 }

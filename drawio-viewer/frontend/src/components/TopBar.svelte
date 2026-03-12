@@ -1,39 +1,55 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
   import { diagrams, activeTabId } from '../stores/diagrams.js';
   import { showToast } from '../stores/toast.js';
-  import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime.js';
 
   let showUrlInput = false;
   let urlValue = '';
   let loadingLocal = false;
   let loadingUrl = false;
-
-  onMount(() => {
-    EventsOn('localfile:opened', (diagram) => {
-      loadingLocal = false;
-      if (!diagram || !diagram.xmlPath) return;
-      diagrams.update(d => [...d, diagram]);
-      activeTabId.set(diagram.id);
-    });
-
-    EventsOn('localfile:error', (msg) => {
-      loadingLocal = false;
-      showToast('Erro ao abrir arquivo: ' + msg, 'error');
-    });
-
-    EventsOn('localfile:cancelled', () => {
-      loadingLocal = false;
-    });
-  });
-
-  onDestroy(() => {
-    EventsOff('localfile:opened', 'localfile:error', 'localfile:cancelled');
-  });
+  let fileInput;
 
   function openLocal() {
+    fileInput.click();
+  }
+
+  async function handleFileSelect(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
     loadingLocal = true;
-    window['go']['main']['App']['OpenLocalFile']();
+    try {
+      const xmlContent = await readFileAsText(file);
+
+      if (!xmlContent || xmlContent.trim() === '') {
+        showToast('Arquivo vazio ou inválido.', 'error');
+        return;
+      }
+
+      const diagram = {
+        id: crypto.randomUUID(),
+        name: file.name,
+        xmlPath: '',
+        xmlContent,
+        isTemp: false,
+      };
+
+      diagrams.update(d => [...d, diagram]);
+      activeTabId.set(diagram.id);
+    } catch (e) {
+      showToast('Erro ao ler arquivo: ' + e, 'error');
+    } finally {
+      loadingLocal = false;
+      fileInput.value = '';
+    }
+  }
+
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(file, 'UTF-8');
+    });
   }
 
   async function openUrl() {
@@ -66,6 +82,14 @@
     urlValue = '';
   }
 </script>
+
+<input
+  bind:this={fileInput}
+  type="file"
+  accept=".drawio,.xml"
+  style="display:none"
+  on:change={handleFileSelect}
+/>
 
 <div class="flex items-center gap-2 bg-gray-800 px-4 py-2 border-b border-gray-700 flex-shrink-0 h-12">
   <span class="text-white font-semibold mr-2 text-sm tracking-wide">Draw.io Viewer</span>
