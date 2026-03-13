@@ -12,6 +12,11 @@
   let loadedKey = '';
   let loading = false;
   let zoomLevel = 1;
+  let panX = 0;
+  let panY = 0;
+  let isPanning = false;
+  let startX = 0;
+  let startY = 0;
 
   $: diagramKey = xmlContent ? `content:${xmlContent.length}:${xmlContent.slice(0, 40)}` : `path:${xmlPath}`;
 
@@ -26,6 +31,8 @@
     pages = [];
     loading = true;
     zoomLevel = 1;
+    panX = 0;
+    panY = 0;
 
     try {
       let xml;
@@ -79,20 +86,26 @@
       return;
     }
 
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+
     const config = JSON.stringify({
       highlight: '#0000ff',
-      nav: true,
+      nav: false,
       resize: true,
       page: currentPage,
       xml,
     });
 
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'width:100%;height:100%;transform-origin:top left;';
+    wrapper.setAttribute('draggable', 'false');
+
+    wrapper.style.cssText = `position:absolute;top:0;left:0;width:${w}px;height:${h}px;transform-origin:top left;`;
 
     const div = document.createElement('div');
     div.className = 'mxgraph';
-    div.style.cssText = 'width:100%;height:100%;';
+    div.style.cssText = `width:${w}px;height:${h}px;pointer-events:none;`;
+    div.setAttribute('draggable', 'false');
     div.setAttribute('data-mxgraph', config);
 
     wrapper.appendChild(div);
@@ -103,31 +116,63 @@
     } else {
       GraphViewer.processElements();
     }
+
+    applyTransform();
   }
 
-  function getZoomWrapper() {
+  function getWrapper() {
     return container?.firstElementChild ?? null;
   }
 
-  function applyZoom() {
-    const el = getZoomWrapper();
+  function applyTransform() {
+    const el = getWrapper();
     if (!el) return;
-    el.style.transform = `scale(${zoomLevel})`;
+    el.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
   }
 
   function zoomIn() {
     zoomLevel = Math.min(+(zoomLevel + 0.2).toFixed(2), 5);
-    applyZoom();
+    applyTransform();
   }
 
   function zoomOut() {
     zoomLevel = Math.max(+(zoomLevel - 0.2).toFixed(2), 0.2);
-    applyZoom();
+    applyTransform();
   }
 
   function zoomReset() {
     zoomLevel = 1;
-    applyZoom();
+    panX = 0;
+    panY = 0;
+    applyTransform();
+  }
+
+  function onWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    zoomLevel = Math.min(Math.max(+(zoomLevel + delta).toFixed(2), 0.2), 5);
+    applyTransform();
+  }
+
+    function onMouseDown(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    isPanning = true;
+    startX = e.clientX - panX;
+    startY = e.clientY - panY;
+    container.style.cursor = 'grabbing';
+  }
+
+  function onMouseMove(e) {
+    if (!isPanning) return;
+    panX = e.clientX - startX;
+    panY = e.clientY - startY;
+    applyTransform();
+  }
+
+  function onMouseUp() {
+    isPanning = false;
+    container.style.cursor = 'grab';
   }
 
   function changePage(idx) {
@@ -171,6 +216,16 @@
       <p>{error}</p>
     </div>
   {:else}
-    <div bind:this={container} class="flex-1 bg-white overflow-hidden"></div>
+       <div
+      bind:this={container}
+      class="flex-1 bg-white overflow-hidden relative"
+      style="cursor: grab; user-select: none;"
+      draggable="false"
+      on:mousedown={onMouseDown}
+      on:mousemove={onMouseMove}
+      on:mouseup={onMouseUp}
+      on:mouseleave={onMouseUp}
+      on:wheel={onWheel}
+    ></div>
   {/if}
 </div>
